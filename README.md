@@ -58,5 +58,3 @@ Cyclistic is a fictional company used for educational analysis.
 The complete analysis—including data cleaning, exploration, visualizations, and recommendations is available here:
 👉 /reports/cyclistic_report.Rmd
 👉 /reports/cyclistic_report.html
-
-(You can add LinkedIn or email if you want.)
