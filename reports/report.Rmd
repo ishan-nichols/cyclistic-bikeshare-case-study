@@ -1,0 +1,191 @@
+---
+title: "Cyclistic Bike-Share Usage Analysis: Members vs. Casual Riders"
+output: html_document
+date: "2025-11-12"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Purpose Statement
+
+The business objective is to identify how casual and annual riders use Cyclistic bikes differently in order to identify opportunities to convert casual riders to annual members. Understanding any behavioral differences will guide the Cyclistic marketing team in designing targeted strategies to increase membership rates.
+
+# Executive Summary
+
+Analysis of Cyclistic bike-share data reveals key behavioral differences: casual riders take dramatically longer rides than members (~90 minutes vs. ~13 minutes for members) but ride much less frequently. Members prefer weekday usage (likely commuting) while casual riders prefer weekends. Casual riders tend to ride for a longer duration on Thursday and Friday. 
+
+Recommendation: Cyclistic should target casual riders, especially weekend and long-distance riders, with incentives to become annual members. The messaging should highlight the cost savings of membership for long rides, the value of unlimited weekend trips, and the overall convenience of being a member. Converting even a small percentage of casual riders to members would significantly increase recurring revenue, since annual members generate predictable income.
+
+## Data Sources
+
+The analysis uses historical data of Cyclistic bike-share trips from Q1 of 2019 and Q1 of 2020. The data is publicly available by Motivate International Inc. under the [license](https://divvybikes.com/data-license-agreement). Cyclistic is a fictional company, but it uses real public bike-share data from Chicago's Divvy system. 
+
+The data is in CSV format and has trip information, including trip duration, station ID, bike ID, start and end stations, and timestamps. In addition, these datasets include rider information such as subscriber (Casual vs. Member), gender, and age.
+
+No personally identifiable information, like address, phone number, or name, is included in the datasets.
+
+## Data Processing and Cleaning
+
+```{r}
+library(tidyverse)
+library(dplyr)
+library(readr)
+library(scales)
+```
+
+
+
+The 2019 and 2020 datasets were imported and validated to ensure correct structure.
+
+```{r}
+q1_2019 <- read.csv("data/Divvy_2019.csv")
+
+q1_2020 <- read.csv("data/Divvy_2020.csv")
+
+str(q1_2019)
+str(q1_2020)
+```
+
+The 2019 and 2020 datasets use different column names, so the columns in the q1_2019 table were renamed to match the naming of the columns in q1_2020. This ensures the datasets are compatible with each other before merging. 
+
+```{r}
+q1_2019 <- rename(q1_2019,
+                   ride_id = trip_id,
+                   started_at = start_time,
+                   ended_at = end_time,
+                   start_station_name = from_station_name,
+                   start_station_id = from_station_id,
+                   end_station_id = to_station_id,
+                   end_station_name = to_station_name,
+                   member_casual = usertype,
+                   rideable_type = bikeid
+                   )
+```
+
+The data types for bike_id and rideable_type were numeric, so they were converted to character types to match the q1_2020 table.
+
+```{r}
+q1_2019 <- mutate(q1_2019, ride_id = as.character(ride_id),
+                  rideable_type = as.character(rideable_type))
+```
+
+The data tables were combined into one table *all_trips* for unified cleaning and analysis.
+
+```{r}
+all_trips <- bind_rows(q1_2019, q1_2020)
+```
+
+To maintain consistency across both years, columns not in both datasets were excluded.
+
+```{r}
+all_trips <- all_trips %>% 
+  select(-c(gender, birthyear,start_lat,start_lng,end_lat,end_lng, tripduration))
+```
+
+## Preparation for Analysis
+
+In the member_casual column, there are two names for members ("member" and "Subscriber") and two names for casual riders ("Customer" and "casual"). 
+```{r}
+table(all_trips$member_casual)
+
+```
+
+These were consolidated to "member" and "casual".
+
+```{r}
+
+all_trips <- all_trips %>% 
+  mutate(member_casual = recode(member_casual, "Subscriber" = "member", "Customer" = "casual"))
+
+table(all_trips$member_casual)
+
+```
+
+The date, month, day, year, and day_of_week columns were added to analyze rider trends across different periods of time.
+
+```{r}
+all_trips$date <- as.Date(all_trips$started_at, format = "%m/%d/%Y %H:%M")
+all_trips$month <- format(as.Date(all_trips$date), "%m")
+all_trips$day <- format(as.Date(all_trips$date), "%d")
+all_trips$year <- format(as.Date(all_trips$date), "%Y")
+all_trips$day_of_week <- format(as.Date(all_trips$date), "%A")
+```
+
+A new calculated column for ride_length was created by subtracting the started_at from the ended_at column. The types were converted from character to POSIXct to ensure compatibility with the difftime function.
+
+```{r}
+all_trips$started_at <- as.POSIXct(all_trips$started_at,
+                                   format = "%m/%d/%Y %H:%M")
+all_trips$ended_at <- as.POSIXct(all_trips$ended_at, 
+                                 format = "%m/%d/%Y %H:%M")
+
+all_trips$ride_length <- difftime(all_trips$ended_at,all_trips$started_at)
+```
+
+Rides starting at the "HQ QR" station represent internal corporate tests, so they were excluded. Negative ride lengths were also excluded to prevent inaccuracies. 
+
+```{r}
+all_trips_v2 <- all_trips[!(all_trips$start_station_name == "HQ QR" | all_trips$ride_length<0), ]
+head(all_trips_v2)
+```
+
+## Descriptive Analysis
+
+### Ride Counts: Members vs. Casual Riders
+
+This section examines the total number of rides taken by members and casual riders to understand their usage patterns. By counting rides by rider type, we can compare how frequently each group rides. In the table below, we can see there is almost the same number of casual and member riders. 
+```{r}
+table(all_trips_v2$member_casual)
+
+```
+This graph illustrates the difference in ride count between casual and member riders. It also shows that members tend to ride much more during the week compared to on the weekend. The opposite is true with casual riders.
+
+```{r}
+all_trips_v2 %>% 
+  mutate(weekday = wday(started_at, label = TRUE)) %>% 
+  group_by(member_casual, weekday) %>% 
+  summarise(number_of_rides = n()
+            ,average_duration = mean(ride_length)) %>% 
+  arrange(member_casual, weekday)  %>% 
+  ggplot(aes(x = weekday, y = number_of_rides, fill=member_casual)) + geom_col(position="dodge") + labs(title = "Ride Count by Day of Week", x = "Day of Week", y = "Number of Rides", fill = "Rider Type")
+```
+
+### Ride Length: Members vs. Casual Riders
+This section examines the average ride length taken by members and casual riders to understand how long they ride for. The table shows that casual riders ride for significantly more time than member riders.
+
+The low p-value indicates overwhelming statistical significance of this difference.
+```{r}
+ride_length <- aggregate(all_trips_v2$ride_length ~ all_trips_v2$member_casual, FUN = mean)
+
+ride_length$ride_length_min = as.numeric(ride_length$`all_trips_v2$ride_length`/ 60)
+
+ride_length
+
+t.test(ride_length ~ member_casual, data = all_trips_v2)
+
+```
+
+This section examines the average ride length grouped by weekday. The graph shows the days of the week and the average ride_length for each day. The graph shows that casual riders ride longer on Thursday and Friday compared to the rest of the week. 
+
+```{r}
+
+all_trips_v2 %>% 
+  mutate(weekday = wday(started_at, label = TRUE)) %>% 
+  group_by(member_casual, weekday) %>% 
+  summarise(number_of_rides = n()
+            ,average_duration = mean(ride_length)) %>% 
+  arrange(member_casual, weekday)  %>% 
+  ggplot(aes(x = weekday, y = average_duration, fill = member_casual)) +
+  geom_col(position = "dodge") + labs(title = "Ride Duration by Day of Week", x = "Day of Week", y = "Average Duration", fill = "Rider Type") + theme_dark()
+```
+
+From this analysis, we can confirm the following about rider behavior.
+
+* Casual riders take less rides on average compared to members, but they ride for much longer. 
+
+* Casual riders take the most rides on the weekends, while members take the most rides during the week.
+
+* Casual riders ride for longer on Thursdays and Fridays compared to the rest of the week.
+
