@@ -3,22 +3,21 @@
 
 This project analyzes differences in behavior between casual riders and annual members of the Cyclistic bike-share program. The goal is to identify insights that can help convert more casual riders into annual members.
 
-This analysis was completed as part of a data analytics case study using R. The company Cyclistic is fictional, however, the data is real and comes from Chicago's Divvy bike-share system.
+This analysis was completed as part of a data analytics case study using R. The company Cyclistic is fictional; however, the data is real and comes from Chicago's Divvy bike-share system.
 
 #  Project Structure
-/data
-    Raw and cleaned bike-share datasets for Q1 2019 and Q1 2020
 
 /reports
     cyclistic_report.Rmd      #  Full analysis with code
     cyclistic_report.html     #  Rendered report output
-    presentation/             #  Slides for final presentation
 
 /scripts
-    Helper R scripts (if any)
+    Analysis.R    # R Script with analysis code
 
-output/
-    Plots, tables, and exported files
+/presentation
+    Cyclistic Rider Presentation.pptx    # Slides for presentation
+
+    
 
 #  Purpose
 
@@ -52,6 +51,7 @@ Data Source
 
 Data comes from historical public bike-share data made available by Motivate International Inc. (Chicago Divvy).
 Cyclistic is a fictional company used for educational analysis.
+The data can be publicly accessed for free at https://divvybikes.com/system-data.
 
 # Full Report
 
